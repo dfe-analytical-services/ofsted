@@ -107,6 +107,7 @@ read_ofsted_colnames <- function(i){
     filter(
       !grepl("previous", col), 
       !grepl("short", col),
+      !grepl("section_8", col),
       !(col %in% c("web_link", "school_name",
                    "ofsted_phase", "type_of_education", "admissions_policy",
                    "sixth_form", "faith_denomination", "ofsted_region", "region",
@@ -120,7 +121,7 @@ read_ofsted_colnames <- function(i){
                    "x47", "issue", "total_number_of_pupils", "x71", "number_of_other_section_8_inspections_since_last_full_inspection",
                    "faith_grouping", "faith_grouping", "event_type_grouping", "inspection_start_date", "inspection_type_grouping",
                    "school_name_at_time_of_latest_full_inspection", "school_type_at_time_of_latest_full_inspection"
-      ))
+                   ,"x_1"))
     )
   
 }
@@ -145,9 +146,17 @@ clean_cols <- cols %>%
                  "x16_to_19_study_programmes_where_applicable") 
       ~ "x16_to_19_study_programmes_where_applicable",
       col == "publication_date" ~ "publication_date",
-      col == "is_safeguarding_effective" ~ "is_safeguarding_effective",
+      col %in% c("is_safeguarding_effective","safeguarding_is_effective") ~ "is_safeguarding_effective",
       col == "urn_at_time_of_latest_full_inspection" ~ "urn_at_time_of_latest_full_inspection",
       col == "laestab_at_time_of_latest_full_inspection" ~ "laestab_at_time_of_latest_full_inspection",
+      
+      col == "personal_development_behaviour_and_welfare" ~ "personal_development_behaviour_and_welfare",
+      col == "quality_of_teaching_learning_and_assessment" ~ "quality_of_teaching_learning_and_assessment",
+      
+      col == "quality_of_education" ~ "quality_of_education",
+      col == "personal_development" ~ "personal_development",
+      col == "behaviour_and_attitudes" ~ "behaviour_and_attitudes",
+      
       n == num_files ~ col,
       TRUE ~ "NA"
     )
@@ -171,6 +180,62 @@ clean_ofsted <- function(df){
     print("No publication date field, inspection date used")
 
   }
+  
+  # Some of the old files dont have outcomes_for_children_and_learners
+  if (!("outcomes_for_children_and_learners" %in% names(df))) {
+    df <- df %>%
+      mutate(outcomes_for_children_and_learners = NA)
+    
+    print("No outcomes_for_children_and_learners field, NA imputed")
+    
+  } 
+  
+  # Some of the old files dont have quality_of_teaching_learning_and_assessment
+  if (!("quality_of_teaching_learning_and_assessment" %in% names(df))) {
+    df <- df %>%
+      mutate(quality_of_teaching_learning_and_assessment = NA)
+    
+    print("No quality_of_teaching_learning_and_assessment field, NA imputed")
+    
+  } 
+  
+  # Some of the old files dont have personal_development_behaviour_and_welfare
+  if (!("personal_development_behaviour_and_welfare" %in% names(df))) {
+    df <- df %>%
+      mutate(personal_development_behaviour_and_welfare = NA)
+    
+    print("No personal_development_behaviour_and_welfare field, NA imputed")
+    
+  } 
+  
+  
+  # Some of the old files dont have behaviour_and_attitudes
+  if (!("behaviour_and_attitudes" %in% names(df))) {
+    df <- df %>%
+      mutate(behaviour_and_attitudes = NA)
+    
+    print("No behaviour_and_attitudes field, NA imputed")
+    
+  } 
+  
+  # Some of the old files dont have quality_of_education
+  if (!("quality_of_education" %in% names(df))) {
+    df <- df %>%
+      mutate(quality_of_education = NA)
+    
+    print("No quality_of_education field, NA imputed")
+    
+  } 
+  
+  # Some of the old files dont have personal_development
+  if (!("personal_development" %in% names(df))) {
+    df <- df %>%
+      mutate(personal_development = NA)
+    
+    print("No personal_development field, NA imputed")
+    
+  } 
+  
   
   # Some of the old files dont have is_safeguarding_effective
   if (!("is_safeguarding_effective" %in% names(df))) {
@@ -265,7 +330,10 @@ historical_clean_data <- read_excel(file.path(ofsted_dir,"Management_information
     effectiveness_of_leadership_and_management = leadership_and_management,
     is_safeguarding_effective = NA,
     urn_at_time_of_latest_full_inspection = NA,
-    laestab_at_time_latest_full_inspection = NA
+    laestab_at_time_latest_full_inspection = NA,
+    quality_of_education = NA,
+    personal_development = NA,
+    behaviour_and_attitudes = NA
   )
 
 
@@ -300,7 +368,10 @@ all_data <- monthly_clean_dataset %>%
     overall_effectiveness,category,x16_to_19_study_programmes_where_applicable,
     early_years_provision_where_applicable,outcomes_for_children_and_learners,
     quality_of_teaching_learning_and_assessment,personal_development_behaviour_and_welfare,
-    effectiveness_of_leadership_and_management,is_safeguarding_effective
+    effectiveness_of_leadership_and_management,is_safeguarding_effective,
+    quality_of_education,
+    personal_development,
+    behaviour_and_attitudes
   )
 
 
@@ -338,7 +409,10 @@ all_data_inspection_urn_all <- all_data_inspection_urn_flag %>%
     quality_of_teaching_learning_and_assessment,
     personal_development_behaviour_and_welfare,
     effectiveness_of_leadership_and_management,
-    is_safeguarding_effective
+    is_safeguarding_effective,
+    quality_of_education,
+    personal_development,
+    behaviour_and_attitudes
   )
 
 # Create dataset of just inspections with same urn and inspection urn
@@ -375,45 +449,3 @@ all_data_final <- bind_rows(
 
 write.csv(all_data_final, "outputs/ofsted_all.csv", row.names = FALSE, na = "")
 
-
-# Set git tags for release ---------------------------------------------------
-
-print("GitHub Deployment -----------------------------------------------------")
-
-# Set git user name and email
-git2r::config(user.name = "adamrobinson361", user.email = "adamrobinson361@gmail.com")
-
-# Create tag based on latest insepction dates in all_data
-max_date <- max(all_data$inspection_date, na.rm = TRUE)
-
-tag_name <- paste0("inspections_up_to_", tolower(months(max_date)), "_", year(max_date))
-
-# Print existing tags for debugging
-
-print("Current tags:")
-
-print(names(git2r::tags()))
-
-# Print if the new tag suggests new data or not
-
-print("Checking if new data:")
-
-print(paste("New data = ", !(tag_name %in% names(git2r::tags()))))
-
-# Tag if new data + print status for debugging
-
-print("Tagging:")
-
-if (!(tag_name %in% names(git2r::tags()))){
-  
-  print("New data - creating new tag.")
-  
-  print(paste("New tag  = ", tag_name))
-  
-  git2r::tag(name = tag_name)
-  
-} else {
-  
-  print("Existing data - no new tag created.")
-  
-}
