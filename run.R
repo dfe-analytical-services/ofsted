@@ -33,16 +33,16 @@ monthly_files <- html_attr(html_nodes(pg, "a"), "href") %>%
   as_tibble() %>%
   filter(
     (
-    # Only excel files
-    grepl("https://assets.publishing.service.gov.uk/", value) & grepl(".xlsx", value) &
-    # Only files after specific date range
-    rm_between(value, "https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/", "/", extract = TRUE) >= 522543
+      # Only excel files
+      grepl("https://assets.publishing.service.gov.uk/", value) & grepl(".xlsx", value) &
+        # Only files after specific date range
+        rm_between(value, "https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/", "/", extract = TRUE) >= 522543
     ) |
-    value %in% 
+      value %in% 
       c("https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/518183/Management_information_-_Schools_-_31_January_2016.xlsx",
         "https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/507161/External_Management_information_-_Schools___Dec-2015.xlsx",
         "https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/507165/External_Management_information_-_Schools___Nov_2015.xlsx")
-    ) %>%
+  ) %>%
   distinct() %>%
   pull(value)
 
@@ -120,10 +120,8 @@ read_ofsted_colnames <- function(i){
                    "does_the_latest_full_inspection_relate_to_the_urn_of_the_current_school",
                    "x47", "issue", "total_number_of_pupils", "x71", "number_of_other_section_8_inspections_since_last_full_inspection",
                    "faith_grouping", "faith_grouping", "event_type_grouping", "inspection_start_date", "inspection_type_grouping",
-                   "school_name_at_time_of_latest_full_inspection", "school_type_at_time_of_latest_full_inspection",
-                   "x_1"
-                   
-      ))
+                   "school_name_at_time_of_latest_full_inspection", "school_type_at_time_of_latest_full_inspection"
+                   ,"x_1"))
     )
   
 }
@@ -151,6 +149,7 @@ clean_cols <- cols %>%
       col %in% c("is_safeguarding_effective","safeguarding_is_effective") ~ "is_safeguarding_effective",
       col == "urn_at_time_of_latest_full_inspection" ~ "urn_at_time_of_latest_full_inspection",
       col == "laestab_at_time_of_latest_full_inspection" ~ "laestab_at_time_of_latest_full_inspection",
+      
       col == "personal_development_behaviour_and_welfare" ~ "personal_development_behaviour_and_welfare",
       col == "quality_of_teaching_learning_and_assessment" ~ "quality_of_teaching_learning_and_assessment",
       
@@ -177,12 +176,12 @@ clean_ofsted <- function(df){
   if (!("publication_date" %in% names(df))) {
     df <- df %>%
       mutate(publication_date = inspection_date)
-
+    
     print("No publication date field, inspection date used")
-
+    
   }
   
-   # Some of the old files dont have outcomes_for_children_and_learners
+  # Some of the old files dont have outcomes_for_children_and_learners
   if (!("outcomes_for_children_and_learners" %in% names(df))) {
     df <- df %>%
       mutate(outcomes_for_children_and_learners = NA)
@@ -191,7 +190,7 @@ clean_ofsted <- function(df){
     
   } 
   
-     # Some of the old files dont have quality_of_teaching_learning_and_assessment
+  # Some of the old files dont have quality_of_teaching_learning_and_assessment
   if (!("quality_of_teaching_learning_and_assessment" %in% names(df))) {
     df <- df %>%
       mutate(quality_of_teaching_learning_and_assessment = NA)
@@ -200,7 +199,7 @@ clean_ofsted <- function(df){
     
   } 
   
-     # Some of the old files dont have personal_development_behaviour_and_welfare
+  # Some of the old files dont have personal_development_behaviour_and_welfare
   if (!("personal_development_behaviour_and_welfare" %in% names(df))) {
     df <- df %>%
       mutate(personal_development_behaviour_and_welfare = NA)
@@ -210,7 +209,7 @@ clean_ofsted <- function(df){
   } 
   
   
-     # Some of the old files dont have behaviour_and_attitudes
+  # Some of the old files dont have behaviour_and_attitudes
   if (!("behaviour_and_attitudes" %in% names(df))) {
     df <- df %>%
       mutate(behaviour_and_attitudes = NA)
@@ -219,7 +218,7 @@ clean_ofsted <- function(df){
     
   } 
   
-     # Some of the old files dont have quality_of_education
+  # Some of the old files dont have quality_of_education
   if (!("quality_of_education" %in% names(df))) {
     df <- df %>%
       mutate(quality_of_education = NA)
@@ -228,7 +227,7 @@ clean_ofsted <- function(df){
     
   } 
   
-     # Some of the old files dont have personal_development
+  # Some of the old files dont have personal_development
   if (!("personal_development" %in% names(df))) {
     df <- df %>%
       mutate(personal_development = NA)
@@ -236,7 +235,6 @@ clean_ofsted <- function(df){
     print("No personal_development field, NA imputed")
     
   } 
-  
   
   
   # Some of the old files dont have is_safeguarding_effective
@@ -247,7 +245,7 @@ clean_ofsted <- function(df){
     print("No is_safeguarding_effective field, NA imputed")
     
   }
-
+  
   # Some of the old files dont have urn_at_time_of_latest_full_inspection
   if (!("urn_at_time_of_latest_full_inspection" %in% names(df))) {
     df <- df %>%
@@ -325,14 +323,17 @@ historical_clean_data <- read_excel(file.path(ofsted_dir,"Management_information
     overall_effectiveness,
     category,
     x16_to_19_study_programmes_where_applicable = sixth_form_provision,
-    early_years_provision_where_applicable = early_years_provision,
+    outcomes_for_children_and_learners = early_years_provision,
     outcomes_for_children_and_learners = how_well_do_pupils_achieve,
     quality_of_teaching_learning_and_assessment = quality_of_teaching,
     personal_development_behaviour_and_welfare = behaviour_and_safety_of_pupils,
     effectiveness_of_leadership_and_management = leadership_and_management,
     is_safeguarding_effective = NA,
     urn_at_time_of_latest_full_inspection = NA,
-    laestab_at_time_latest_full_inspection = NA
+    laestab_at_time_latest_full_inspection = NA,
+    quality_of_education = NA,
+    personal_development = NA,
+    behaviour_and_attitudes = NA
   )
 
 
@@ -367,7 +368,10 @@ all_data <- monthly_clean_dataset %>%
     overall_effectiveness,category,x16_to_19_study_programmes_where_applicable,
     early_years_provision_where_applicable,outcomes_for_children_and_learners,
     quality_of_teaching_learning_and_assessment,personal_development_behaviour_and_welfare,
-    effectiveness_of_leadership_and_management,is_safeguarding_effective
+    effectiveness_of_leadership_and_management,is_safeguarding_effective,
+    quality_of_education,
+    personal_development,
+    behaviour_and_attitudes
   )
 
 
@@ -405,7 +409,10 @@ all_data_inspection_urn_all <- all_data_inspection_urn_flag %>%
     quality_of_teaching_learning_and_assessment,
     personal_development_behaviour_and_welfare,
     effectiveness_of_leadership_and_management,
-    is_safeguarding_effective
+    is_safeguarding_effective,
+    quality_of_education,
+    personal_development,
+    behaviour_and_attitudes
   )
 
 # Create dataset of just inspections with same urn and inspection urn
@@ -441,7 +448,6 @@ all_data_final <- bind_rows(
 )
 
 write.csv(all_data_final, "outputs/ofsted_all.csv", row.names = FALSE, na = "")
-
 
 # Set git tags for release ---------------------------------------------------
 
