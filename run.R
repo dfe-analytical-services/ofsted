@@ -446,7 +446,14 @@ all_data_final <- bind_rows(
   left_overs
 )
 
-write.csv(all_data_final, "outputs/ofsted_all.csv", row.names = FALSE, na = "")
+all_data_final2 <- all_data_final %>%
+  left_join(select(gias,urn,establishment_status_code), by = c("urn" = "urn")) %>% 
+  group_by(urn) %>%
+  mutate(history_order = rank(desc(publication_date), ties.method = "first")) %>%
+  ungroup()
+
+
+write.csv(all_data_final2, "outputs/ofsted_all.csv", row.names = FALSE, na = "")
 write.csv(ofsted_urn_links, "outputs/ofsted_current_urn_successor_links.csv", row.names = FALSE, na = "")
 write.csv(predecessors2, "outputs/predecessor_links_ofsted.csv", row.names = FALSE, na = "")
 # Set git tags for release ---------------------------------------------------
