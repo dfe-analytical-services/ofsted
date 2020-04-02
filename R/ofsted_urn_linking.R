@@ -12,7 +12,7 @@ links <- read.csv(paste0("https://ea-edubase-api-prod.azurewebsites.net/edubase/
          link_established_date = as.Date(link_established_date, "%d-%m-%Y"))
 
 
-#write.csv(links, paste0("Data/links_edubasealldata",gsub("-","",Sys.Date()),".csv"), row.names = FALSE)
+#write.csv(links, paste0("outputs/links_edubasealldata",gsub("-","",Sys.Date()),".csv"), row.names = FALSE)
 
 predecessors <- links %>% 
   filter(grepl('Pred', link_type)) %>% 
@@ -52,7 +52,7 @@ gias <- read.csv(paste0("https://ea-edubase-api-prod.azurewebsites.net/edubase/d
             statutory_low_age,
             statutory_high_age)
 
-#write.csv(gias, paste0("Data/edubasealldata",gsub("-","",Sys.Date()),".csv"), row.names = FALSE)
+#write.csv(gias, paste0("outputs/edubasealldata",gsub("-","",Sys.Date()),".csv"), row.names = FALSE)
 
 
 successors <- successors %>% 
@@ -228,7 +228,7 @@ predecessors2 <- predecessors2 %>%
   filter(Level == min(Level, na.rm = TRUE)) %>%
   ungroup()
 
-write.csv(predecessors2, "outputs/predecessor_all.csv", row.names = FALSE, na = "")
-write.csv(ofsted_urn_links, "outputs/ofsted_current_urn_successor_links.csv", row.names = FALSE, na = "")
+#write.csv(predecessors2, "outputs/predecessor_all.csv", row.names = FALSE, na = "")
+#write.csv(ofsted_urn_links, "outputs/ofsted_current_urn_successor_links.csv", row.names = FALSE, na = "")
 
 
