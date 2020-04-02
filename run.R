@@ -240,9 +240,9 @@ clean_ofsted <- function(df){
   # Some of the old files dont have is_safeguarding_effective
   if (!("is_safeguarding_effective" %in% names(df))) {
     df <- df %>%
-      mutate(is_safeguarding_effective = NA)
+      mutate(is_safeguarding_effective = '9')
     
-    print("No is_safeguarding_effective field, NA imputed")
+    print("No is_safeguarding_effective field, 9 imputed")
     
   }
   
@@ -328,9 +328,9 @@ historical_clean_data <- read_excel(file.path(ofsted_dir,"Management_information
     quality_of_teaching_learning_and_assessment = quality_of_teaching,
     personal_development_behaviour_and_welfare = behaviour_and_safety_of_pupils,
     effectiveness_of_leadership_and_management = leadership_and_management,
-    is_safeguarding_effective = NA,
-    urn_at_time_of_latest_full_inspection = 9,
-    laestab_at_time_latest_full_inspection = 9,
+    is_safeguarding_effective = '9',
+    urn_at_time_of_latest_full_inspection = NA,
+    laestab_at_time_latest_full_inspection = NA,
     quality_of_education = 9,
     personal_development = 9,
     behaviour_and_attitudes = 9
