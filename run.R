@@ -13,8 +13,7 @@ library(lubridate)
 
 
 # Source the gias predecessors code ---------------------------------------
-source("R/gias_predecessors.R")
-source("R/gias.R")
+source("R/ofsted_urn_linking.R")
 
 # Create temp directory ---------------------------------------------------
 
@@ -343,20 +342,19 @@ historical_clean_data <- read_excel(file.path(ofsted_dir,"Management_information
 all_data <- monthly_clean_dataset %>%
   bind_rows(historical_clean_data) %>%
   distinct() %>%
+ mutate(ratingsum = quality_of_education+personal_development+behaviour_and_attitudes+outcomes_for_children_and_learners+quality_of_teaching_learning_and_assessment+personal_development_behaviour_and_welfare) %>%
   # Create rank for entries based on urn and inspection id
   group_by(urn, inspection_id) %>% 
-  mutate(rnk1 = rank(desc(inspection_date), ties.method = "first")) %>%
+  mutate(rnk1 = rank(ratingsum,desc(inspection_date), ties.method = "first")) %>%
   ungroup() %>%
   # Filter out duplicates
   filter(rnk1 == 1) %>%
   # Create rank for entries based on urn and inspection date
   group_by(urn, inspection_date) %>% 
-  mutate(rnk2 = rank(desc(publication_date), ties.method = "first")) %>%
+  mutate(rnk2 = rank(ratingsum,desc(publication_date), ties.method = "first")) %>%
   ungroup() %>%
   # Filter out duplicates
   filter(rnk2 == 1) %>%
-  # Filter out fresh starts based on differing laestabs
-  filter(laestab == laestab_at_time_of_latest_full_inspection | is.na(laestab_at_time_of_latest_full_inspection)) %>%
   # Rename at time fields
   rename(
     urn_at_time_of_inspection = urn_at_time_of_latest_full_inspection,
@@ -374,6 +372,7 @@ all_data <- monthly_clean_dataset %>%
     behaviour_and_attitudes
   )
 
+gias$urn <- as.numeric(gias$urn)
 
 # Modify data to map to all successor schools -----------------------------
 
@@ -420,7 +419,7 @@ all_data_inspection_urn_only <- all_data_inspection_urn_all %>%
   filter(urn == inspection_urn)
 
 # Create dataset of inspections for all successors
-all_data_non_inspection_urn_only <- predecessors %>%
+all_data_non_inspection_urn_only <- predecessors2 %>%
   select(URN, LinkURN) %>%
   left_join(all_data_inspection_urn_only, by = c("LinkURN" = "urn")) %>%
   filter(!is.na(inspection_id)) %>% 
@@ -448,7 +447,8 @@ all_data_final <- bind_rows(
 )
 
 write.csv(all_data_final, "outputs/ofsted_all.csv", row.names = FALSE, na = "")
-
+write.csv(ofsted_urn_links, "outputs/ofsted_current_urn_successor_links.csv", row.names = FALSE, na = "")
+write.csv(predecessors2, "outputs/predecessor_links_ofsted.csv", row.names = FALSE, na = "")
 # Set git tags for release ---------------------------------------------------
 
 print("GitHub Deployment -----------------------------------------------------")
