@@ -242,7 +242,7 @@ clean_ofsted <- function(df){
     df <- df %>%
       mutate(is_safeguarding_effective = '9')
     
-    print("No is_safeguarding_effective field, NA imputed")
+    print("No is_safeguarding_effective field, '9' imputed")
     
   }
   
