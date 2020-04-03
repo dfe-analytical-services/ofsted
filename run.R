@@ -240,7 +240,7 @@ clean_ofsted <- function(df){
   # Some of the old files dont have is_safeguarding_effective
   if (!("is_safeguarding_effective" %in% names(df))) {
     df <- df %>%
-      mutate(is_safeguarding_effective = NA)
+      mutate(is_safeguarding_effective = '9')
     
     print("No is_safeguarding_effective field, NA imputed")
     
