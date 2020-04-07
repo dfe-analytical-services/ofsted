@@ -240,8 +240,8 @@ clean_ofsted <- function(df){
   if (!("is_safeguarding_effective" %in% names(df))) {
     df <- df %>%
       mutate(is_safeguarding_effective = '9')
-    
-    print("No is_safeguarding_effective field, 9 imputed")
+
+    print("No is_safeguarding_effective field, '9' imputed")
     
   }
   
