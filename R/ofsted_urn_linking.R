@@ -93,8 +93,8 @@ successor_link_final <- successor_link_extended_info %>%
   # Filter out amalgamations
   filter(amalgamation != 1) %>% 
   select(-amalgamation) %>%
-  group_by(urn) %>%
   # Filter out any cases where there are multiple links (i.e. a split)
+  group_by(urn) %>%
   mutate(n_links = n()) %>%
   ungroup() %>%
   filter(n_links == 1) %>%
