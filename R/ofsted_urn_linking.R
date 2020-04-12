@@ -2,19 +2,18 @@ library(tidyr)
 library(dplyr)
 library(janitor)
 library(tidylog)
-library(curl)
-library(RODBC)
 
+# Data preparation --------------------------------------------------------
+
+# Download the link files from gias and get clean cols required
 links <- read.csv(paste0("https://ea-edubase-api-prod.azurewebsites.net/edubase/downloads/public/links_edubasealldata",gsub("-","",Sys.Date()),".csv"), stringsAsFactors = FALSE) %>% 
   clean_names() %>% 
-  mutate(urn = as.character(urn),
-         link_urn = as.character(link_urn),
+  mutate(urn = as.integer(urn),
+         link_urn = as.integer(link_urn),
          link_established_date = as.Date(link_established_date, "%d-%m-%Y"))
 
-
-#write.csv(links, paste0("outputs/links_edubasealldata",gsub("-","",Sys.Date()),".csv"), row.names = FALSE)
-
-predecessors <- links %>% 
+# Subset to predecessor links
+predecessor_link <- links %>% 
   filter(grepl('Pred', link_type)) %>% 
   # Flip to be in the direction of successors 
   transmute(predecessor_urn = link_urn,
@@ -22,9 +21,9 @@ predecessors <- links %>%
             predecessor_link_type = link_type)
 
 # Full join with predecessors to fill in gaps of missing pairs
-successors <- links %>% 
+successor_link <- links %>% 
   filter(grepl('Succ', link_type)) %>% 
-  full_join(predecessors, by = c("urn" = "predecessor_urn")) %>%
+  full_join(predecessor_link, by = c("urn" = "predecessor_urn")) %>%
   transmute(urn,
             link_urn = case_when(is.na(link_urn) ~ successor_urn, 
                                  TRUE ~ link_urn),
@@ -32,13 +31,10 @@ successors <- links %>%
             predecessor_link_type) %>% 
   distinct(urn, link_urn, .keep_all = TRUE)
 
-
-gias <- read.csv(paste0("https://ea-edubase-api-prod.azurewebsites.net/edubase/downloads/public/edubasealldata",gsub("-","",Sys.Date()),".csv"))
-  gias2 <- gias %>%  
-  clean_names() 
- 
-   gias <- gias2 %>%
-  transmute(urn = as.character(urn),
+# Read in a gias all data cut and select clean cols required
+gias <- read.csv(paste0("https://ea-edubase-api-prod.azurewebsites.net/edubase/downloads/public/edubasealldata",gsub("-","",Sys.Date()),".csv")) %>%
+  clean_names() %>%
+  transmute(urn = as.integer(urn),
             establishment_name,
             open_date = as.Date(open_date, "%d-%m-%Y"),
             close_date = as.Date(close_date, "%d-%m-%Y"),
@@ -52,10 +48,8 @@ gias <- read.csv(paste0("https://ea-edubase-api-prod.azurewebsites.net/edubase/d
             statutory_low_age,
             statutory_high_age)
 
-#write.csv(gias, paste0("outputs/edubasealldata",gsub("-","",Sys.Date()),".csv"), row.names = FALSE)
-
-
-successors <- successors %>% 
+# Add extended info from gias onto sucessor link tables
+successor_link_extended_info <- successor_link %>% 
   left_join(gias, by = "urn") %>%
   transmute(urn,
             urn_name = establishment_name,
@@ -78,51 +72,57 @@ successors <- successors %>%
          link_statutory_low_age = statutory_low_age,
          link_statutory_high_age = statutory_high_age)
 
-
-successors <- successors %>% 
-  filter(link_status != "Proposed to open") 
-
-
-successors <- successors %>% 
-  filter(urn_status != "Open")
-
-successors <- successors %>% 
-  mutate(amalgamation = if_else(urn_close_date > (link_open_date + 365), 1, 0)) %>% 
-  mutate(amalgamation = coalesce(amalgamation, 0)) %>% # addresses cases with no close/open dates
+# Filter successors based on what we want to exclude
+successor_link_final <- successor_link_extended_info %>%
+  # Filter out urn open and link proposed to open
+  filter(
+    urn_status != "Open",
+    link_status != "Proposed to open"
+  ) %>%
+  mutate(
+    # Create a flag for amalgamations - What does it mean by amalgamations??
+    amalgamation = case_when(
+      # Explicitly assign when open and close dates are NA to 0 (not an amalgamation)
+      is.na(urn_close_date) | is.na(link_open_date) ~ 0,
+      # Identify amalgamations based on close date being greater than the link
+      # open data + a year.
+      urn_close_date > (link_open_date + 365) ~ 1,
+      TRUE ~ 0
+    )
+  ) %>%
+  # Filter out amalgamations
   filter(amalgamation != 1) %>% 
-  select(-amalgamation)
-
-successors <- successors %>% 
-  # Count number of links to a single URN. > 1 indicates a split.
-  left_join(count(., urn), by = "urn") %>%
-  filter(n == 1) %>% 
-  select(-n) %>% 
-  # Count number of links to a single LinkURN. > 1 indicates a merge or amalgamation
-  left_join(count(., link_urn), by = "link_urn") %>%
-  filter(n == 1) %>% 
-  select(-n)
-
-same_urn <- filter(successors, urn == link_urn)
-
-successors <- successors %>% 
+  select(-amalgamation) %>%
+  group_by(urn) %>%
+  # Filter out any cases where there are multiple links (i.e. a split)
+  mutate(n_links = n()) %>%
+  ungroup() %>%
+  filter(n_links == 1) %>%
+  select(-n_links) %>%
+  # Filter out any cases where the link urn relates to multiple schools 
+  # (i.e. a merge/amalgamation)
+  group_by(link_urn) %>%
+  mutate(n_urns = n()) %>%
+  ungroup() %>%
+  filter(n_urns == 1) %>%
+  select(-n_urns) %>%
+  # Filter out any cases where the urn and link urn are equal
+  filter(urn != link_urn) %>%
+  # Filter out any cases where link type is amal, merg or split
   filter(is.na(successor_link_type) | !grepl('amal|merg|split', successor_link_type, ignore.case = TRUE)) %>% 
   filter(is.na(predecessor_link_type) | !grepl('amal|merg|split', predecessor_link_type, ignore.case = TRUE)) %>% 
-  select(-predecessor_link_type,
-         -successor_link_type)
-
-successors <- successors %>% 
+  select(-predecessor_link_type, -successor_link_type) %>%
+  # Filter out any cases where reason established is closed is NA or 1 and reason link
+  # establishment is opened is NA or 1
   filter((is.na(urn_reason_establishment_closed) | urn_reason_establishment_closed != "1") &
-           (is.na(link_reason_establishment_opened) | link_reason_establishment_opened != "1")) #amend to opened
-
-gias <- gias %>% 
-  distinct(urn, .keep_all = TRUE)
-
-successors <- successors %>% 
-  mutate(infant_to_primary = if_else((urn_phase_of_education == "Primary" & urn_statutory_high_age <= 9 & link_statutory_high_age > 9), 1, 0),
-         junior_to_primary = if_else((link_phase_of_education == "Primary" & urn_statutory_low_age >= 7 & link_statutory_low_age < 7), 1, 0)) %>% 
-  filter((is.na(infant_to_primary) | infant_to_primary != 1) & (is.na(junior_to_primary) | junior_to_primary != 1))
-
-successors <- successors %>% 
+           (is.na(link_reason_establishment_opened) | link_reason_establishment_opened != "1")) %>%
+  # Filter out cases where an infact school or junior school has changed to primary
+  mutate(
+    infant_to_primary = if_else((urn_phase_of_education == "Primary" & urn_statutory_high_age <= 9 & link_statutory_high_age > 9), 1, 0),
+    junior_to_primary = if_else((link_phase_of_education == "Primary" & urn_statutory_low_age >= 7 & link_statutory_low_age < 7), 1, 0)
+  ) %>% 
+  filter((is.na(infant_to_primary) | infant_to_primary != 1) & (is.na(junior_to_primary) | junior_to_primary != 1)) %>%
+  # Filter out primary merges
   mutate(infant_junior = xor(grepl("infant|first|lower", urn_name, ignore.case = TRUE), 
                              grepl("junior|\\bmiddle\\b|upper", urn_name, ignore.case = TRUE)),
          # flags predecessors that are specifically infant or junior
@@ -134,101 +134,73 @@ successors <- successors %>%
          # flags successors that are specifically infant or junior
          primary_merge = if_else(infant_junior == "TRUE" & infant_junior_specific == "TRUE" & primary == "TRUE" & primary_specific == "TRUE", 1, 0)) %>% # creates a flag for junior/infant specific schools that have merged into a primary
   filter(is.na(primary_merge) | primary_merge == 0) %>%
-  select(urn,
-         link_urn)
+  select(urn, link_urn)
 
-all_urns <- gias %>% 
-  filter(establishment_status != "Proposed to open") %>% 
-  transmute(urn = as.character(urn),
-            current_urn = urn,
-            number_of_links = 0)
+# Create a table of all predecessors --------------------------------------
 
-
-
-while(TRUE){
-  all_urns <- all_urns %>%
-    left_join(successors, by=c("current_urn"="urn"))
-  if(all(is.na(all_urns$link_urn))){
-    all_urns <- all_urns %>%
-      select(-link_urn)
-    
-    break
-  }
-  all_urns <- all_urns %>%
-    mutate(number_of_links = ifelse(is.na(link_urn), number_of_links, number_of_links+1),
-           current_urn = ifelse(is.na(link_urn), current_urn, link_urn)) %>%
-    select(-link_urn)
-}
-
-
-
-#Test to find infinite loop URNs
-#all_urns3 <- all_urns2 %>%
-#  left_join(successors_all2, by=c("current_urn"="urn")) %>%
-#  transmute(current_urn,urn,link_urn1 = link_urn) %>%
- # left_join(successors_all2, by=c("link_urn1"="urn")) %>%
-#  transmute(current_urn,urn,link_urn1,link_urn2 = link_urn) %>%
-#  left_join(successors_all2, by=c("link_urn2"="urn")) %>%
-#  transmute(current_urn,urn,link_urn1,link_urn2,link_urn3 = link_urn) %>%
-#  left_join(successors_all2, by=c("link_urn3"="urn")) %>%
-#  transmute(current_urn,urn,link_urn1,link_urn2,link_urn3,link_urn4 = link_urn) %>%
-#left_join(successors_all2, by=c("link_urn4"="urn")) %>%
-#  transmute(current_urn,urn,link_urn1,link_urn2,link_urn3,link_urn4,link_urn5 = link_urn) %>%
-#  left_join(successors_all2, by=c("link_urn5"="urn")) %>%
-#  transmute(current_urn,urn,link_urn1,link_urn2,link_urn3,link_urn4,link_urn5,link_urn6 = link_urn) %>%
-#left_join(successors_all2, by=c("link_urn6"="urn")) %>%
-#  transmute(current_urn,urn,link_urn1,link_urn2,link_urn3,link_urn4,link_urn5,link_urn6,link_urn7 = link_urn) %>%
-#  left_join(successors_all2, by=c("link_urn7"="urn")) %>%
-#  transmute(current_urn,urn,link_urn1,link_urn2,link_urn3,link_urn4,link_urn5,link_urn6,link_urn7,link_urn8 = link_urn) 
-
-
-ofsted_urn_links <- all_urns %>%
-  distinct() %>%
-  transmute(urn = as.character(urn),
-            current_urn = as.character(current_urn))
-
-
-predecessor2 <- successors %>%
+# Create base dataset
+predecessors <- successor_link_final %>%
   mutate(Level = 1) %>%
+  # note the switch in urn and link urn
   select(
     URN = link_urn,
     LinkURN = urn,
     Level
   )
 
-
-predecessors2 <- predecessor2
-
+# Recursively join predecessors
 rows <- TRUE
 
 while (rows == TRUE) {
   
-  predecessor_next_level2 <- predecessors2 %>%
+  predecessor_next_level <- predecessors %>%
     filter(Level == max(Level, na.rm = TRUE)) %>%
     select(URN, LinkURN, Level) %>%
-    left_join(select(predecessor2, URN, LinkURN), by = c("LinkURN" = "URN")) %>%
+    left_join(select(predecessors, URN, LinkURN), by = c("LinkURN" = "URN")) %>%
     filter(!is.na(LinkURN.y)) %>% 
     filter(LinkURN != LinkURN.y) %>% 
     mutate(
-      Level = max(Level, na.rm = TRUE) + 1 #,
-      #LinkType = "Predecessor"
+      Level = max(Level, na.rm = TRUE) + 1
     ) %>%
     select(-LinkURN) %>% 
     rename(LinkURN = LinkURN.y)
   
-  predecessors2 <- bind_rows(predecessors2, predecessor_next_level2)
+  predecessors <- bind_rows(predecessors, predecessor_next_level)
   
-  rows <- nrow(predecessor_next_level2) > 0 
+  rows <- nrow(predecessor_next_level) > 0 
   
 }
 
 # Remove any urns duplicated in history
-predecessors2 <- predecessors2 %>% 
+predecessors <- predecessors %>% 
   group_by(URN, LinkURN) %>%
   filter(Level == min(Level, na.rm = TRUE)) %>%
   ungroup()
 
-#write.csv(predecessors2, "outputs/predecessor_all.csv", row.names = FALSE, na = "")
-#write.csv(ofsted_urn_links, "outputs/ofsted_current_urn_successor_links.csv", row.names = FALSE, na = "")
+# Create table linking all gias urns to their current urn -----------------
+# This is not directly used in code but is a useful by-product
 
+# Create base table for looping
+current_urn <- gias %>% 
+  filter(establishment_status != "Proposed to open") %>% 
+  transmute(urn = urn,
+            current_urn = urn,
+            number_of_links = 0)
 
+# While loop join successors
+while (TRUE) {
+  current_urn <- current_urn %>%
+    left_join(successor_link_final, by = c("current_urn" = "urn"))
+  if (all(is.na(current_urn$link_urn))) {
+    current_urn <- current_urn %>%
+      select(-link_urn)
+    break
+  }
+  current_urn <- current_urn %>%
+    mutate(
+      number_of_links = ifelse(is.na(link_urn), number_of_links, number_of_links +
+                                 1),
+      current_urn = ifelse(is.na(link_urn), current_urn, link_urn)
+    ) %>%
+    select(-link_urn)
+}

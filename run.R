@@ -11,7 +11,6 @@ library(rvest)
 library(qdapRegex)
 library(lubridate)
 
-
 # Source the gias predecessors code ---------------------------------------
 source("R/ofsted_urn_linking.R")
 
@@ -419,7 +418,7 @@ all_data_inspection_urn_only <- all_data_inspection_urn_all %>%
   filter(urn == inspection_urn)
 
 # Create dataset of inspections for all successors
-all_data_non_inspection_urn_only <- predecessors2 %>%
+all_data_non_inspection_urn_only <- predecessors %>%
   select(URN, LinkURN) %>%
   left_join(all_data_inspection_urn_only, by = c("LinkURN" = "urn")) %>%
   filter(!is.na(inspection_id)) %>% 
@@ -446,16 +445,17 @@ all_data_final <- bind_rows(
   left_overs
 )
 
-all_data_final2 <- all_data_final %>%
+# Add on establishment status code and history order
+all_data_final <- all_data_final %>%
   left_join(select(gias,urn,establishment_status_code), by = c("urn" = "urn")) %>% 
   group_by(urn) %>%
   mutate(history_order = rank(desc(publication_date), ties.method = "first")) %>%
   ungroup()
 
 
-write.csv(all_data_final2, "outputs/ofsted_all.csv", row.names = FALSE, na = "")
-write.csv(ofsted_urn_links, "outputs/ofsted_current_urn_successor_links.csv", row.names = FALSE, na = "")
-write.csv(predecessors2, "outputs/predecessor_links_ofsted.csv", row.names = FALSE, na = "")
+write.csv(all_data_final, "outputs/ofsted_all.csv", row.names = FALSE, na = "")
+write.csv(current_urn, "outputs/current_urn.csv", row.names = FALSE, na = "")
+write.csv(predecessors, "outputs/predecessors.csv", row.names = FALSE, na = "")
 # Set git tags for release ---------------------------------------------------
 
 print("GitHub Deployment -----------------------------------------------------")
