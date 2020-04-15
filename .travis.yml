@@ -1,6 +1,6 @@
 language: r
 r: 
-  - 3.5.2
+  - 3.6.2
   
 sudo: required
 
