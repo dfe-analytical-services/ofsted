@@ -11,10 +11,8 @@ library(rvest)
 library(qdapRegex)
 library(lubridate)
 
-
 # Source the gias predecessors code ---------------------------------------
-source("R/gias_predecessors.R")
-source("R/gias.R")
+source("R/ofsted_urn_linking.R")
 
 # Create temp directory ---------------------------------------------------
 
@@ -241,7 +239,7 @@ clean_ofsted <- function(df){
   if (!("is_safeguarding_effective" %in% names(df))) {
     df <- df %>%
       mutate(is_safeguarding_effective = '9')
-    
+
     print("No is_safeguarding_effective field, '9' imputed")
     
   }
@@ -343,20 +341,19 @@ historical_clean_data <- read_excel(file.path(ofsted_dir,"Management_information
 all_data <- monthly_clean_dataset %>%
   bind_rows(historical_clean_data) %>%
   distinct() %>%
+ mutate(ratingsum = quality_of_education+personal_development+behaviour_and_attitudes+outcomes_for_children_and_learners+quality_of_teaching_learning_and_assessment+personal_development_behaviour_and_welfare) %>%
   # Create rank for entries based on urn and inspection id
   group_by(urn, inspection_id) %>% 
-  mutate(rnk1 = rank(desc(inspection_date), ties.method = "first")) %>%
+  mutate(rnk1 = rank(ratingsum,desc(inspection_date), ties.method = "first")) %>%
   ungroup() %>%
   # Filter out duplicates
   filter(rnk1 == 1) %>%
   # Create rank for entries based on urn and inspection date
   group_by(urn, inspection_date) %>% 
-  mutate(rnk2 = rank(desc(publication_date), ties.method = "first")) %>%
+  mutate(rnk2 = rank(ratingsum,desc(publication_date), ties.method = "first")) %>%
   ungroup() %>%
   # Filter out duplicates
   filter(rnk2 == 1) %>%
-  # Filter out fresh starts based on differing laestabs
-  filter(laestab == laestab_at_time_of_latest_full_inspection | is.na(laestab_at_time_of_latest_full_inspection)) %>%
   # Rename at time fields
   rename(
     urn_at_time_of_inspection = urn_at_time_of_latest_full_inspection,
@@ -374,6 +371,7 @@ all_data <- monthly_clean_dataset %>%
     behaviour_and_attitudes
   )
 
+gias$urn <- as.numeric(gias$urn)
 
 # Modify data to map to all successor schools -----------------------------
 
@@ -447,8 +445,17 @@ all_data_final <- bind_rows(
   left_overs
 )
 
-write.csv(all_data_final, "outputs/ofsted_all.csv", row.names = FALSE, na = "")
+# Add on establishment status code and history order
+all_data_final <- all_data_final %>%
+  left_join(select(gias,urn,establishment_status_code), by = c("urn" = "urn")) %>% 
+  group_by(urn) %>%
+  mutate(history_order = rank(desc(publication_date), ties.method = "first")) %>%
+  ungroup()
 
+
+write.csv(all_data_final, "outputs/ofsted_all.csv", row.names = FALSE, na = "")
+write.csv(current_urn, "outputs/current_urn.csv", row.names = FALSE, na = "")
+write.csv(predecessors, "outputs/predecessors.csv", row.names = FALSE, na = "")
 # Set git tags for release ---------------------------------------------------
 
 print("GitHub Deployment -----------------------------------------------------")
