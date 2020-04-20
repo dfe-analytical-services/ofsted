@@ -22,5 +22,6 @@ script:
 deploy:
   provider: releases
   api_key: "$GITHUB_AUTH"
-  file: "outputs/ofsted_all.csv"
+  file_glob: true
+  file: outputs/*
   skip_cleanup: true
