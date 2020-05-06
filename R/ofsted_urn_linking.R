@@ -93,6 +93,14 @@ successor_link_final <- successor_link_extended_info %>%
   # Filter out amalgamations
   filter(amalgamation != 1) %>% 
   select(-amalgamation) %>%
+  # Filter out any cases where link type is amal, merg or split
+  filter(is.na(successor_link_type) | !grepl('amal|merg|split', successor_link_type, ignore.case = TRUE)) %>% 
+  filter(is.na(predecessor_link_type) | !grepl('amal|merg|split', predecessor_link_type, ignore.case = TRUE)) %>% 
+  select(-predecessor_link_type, -successor_link_type) %>%
+  # Filter out any cases where reason established is closed is NA or 1 and reason link
+  # establishment is opened is NA or 1
+  filter((is.na(urn_reason_establishment_closed) | urn_reason_establishment_closed != "1") &
+           (is.na(link_reason_establishment_opened) | link_reason_establishment_opened != "1")) %>%
   # Filter out any cases where there are multiple links (i.e. a split)
   group_by(urn) %>%
   mutate(n_links = n()) %>%
@@ -108,14 +116,6 @@ successor_link_final <- successor_link_extended_info %>%
   select(-n_urns) %>%
   # Filter out any cases where the urn and link urn are equal
   filter(urn != link_urn) %>%
-  # Filter out any cases where link type is amal, merg or split
-  filter(is.na(successor_link_type) | !grepl('amal|merg|split', successor_link_type, ignore.case = TRUE)) %>% 
-  filter(is.na(predecessor_link_type) | !grepl('amal|merg|split', predecessor_link_type, ignore.case = TRUE)) %>% 
-  select(-predecessor_link_type, -successor_link_type) %>%
-  # Filter out any cases where reason established is closed is NA or 1 and reason link
-  # establishment is opened is NA or 1
-  filter((is.na(urn_reason_establishment_closed) | urn_reason_establishment_closed != "1") &
-           (is.na(link_reason_establishment_opened) | link_reason_establishment_opened != "1")) %>%
   # Filter out cases where an infact school or junior school has changed to primary
   mutate(
     infant_to_primary = if_else((urn_phase_of_education == "Primary" & urn_statutory_high_age <= 9 & link_statutory_high_age > 9), 1, 0),
