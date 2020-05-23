@@ -463,7 +463,7 @@ all_data_final <- all_data_final %>%
       personal_development,
       behaviour_and_attitudes
     ), 
-    funs(ifelse(. == 0, 9, .))
+    function(x) ifelse(x == 0, 9, x)
   )
 
 write.csv(all_data_final, "outputs/ofsted_all.csv", row.names = FALSE, na = "")
