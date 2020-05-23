@@ -450,8 +450,21 @@ all_data_final <- all_data_final %>%
   left_join(select(gias,urn,establishment_status_code), by = c("urn" = "urn")) %>% 
   group_by(urn) %>%
   mutate(history_order = rank(desc(publication_date), ties.method = "first")) %>%
-  ungroup()
-
+  ungroup() %>%
+  mutate_at(
+    vars(
+      x16_to_19_study_programmes_where_applicable,
+      early_years_provision_where_applicable,
+      outcomes_for_children_and_learners,
+      quality_of_teaching_learning_and_assessment,
+      personal_development_behaviour_and_welfare,
+      effectiveness_of_leadership_and_management,
+      quality_of_education,
+      personal_development,
+      behaviour_and_attitudes
+    ), 
+    funs(ifelse(. == 0, 9, .))
+  )
 
 write.csv(all_data_final, "outputs/ofsted_all.csv", row.names = FALSE, na = "")
 write.csv(current_urn, "outputs/current_urn.csv", row.names = FALSE, na = "")
