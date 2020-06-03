@@ -340,8 +340,23 @@ historical_clean_data <- read_excel(file.path(ofsted_dir,"Management_information
 # Bind all of the data together and remove dupliates
 all_data <- monthly_clean_dataset %>%
   bind_rows(historical_clean_data) %>%
+  # Recode any 0's in submeasures to 9
+  mutate_at(
+    vars(
+      x16_to_19_study_programmes_where_applicable,
+      early_years_provision_where_applicable,
+      outcomes_for_children_and_learners,
+      quality_of_teaching_learning_and_assessment,
+      personal_development_behaviour_and_welfare,
+      effectiveness_of_leadership_and_management,
+      quality_of_education,
+      personal_development,
+      behaviour_and_attitudes
+    ), 
+    function(x) ifelse(x == 0, 9, x)
+  ) %>%
   distinct() %>%
- mutate(ratingsum = quality_of_education+personal_development+behaviour_and_attitudes+outcomes_for_children_and_learners+quality_of_teaching_learning_and_assessment+personal_development_behaviour_and_welfare) %>%
+  mutate(ratingsum = quality_of_education+personal_development+behaviour_and_attitudes+outcomes_for_children_and_learners+quality_of_teaching_learning_and_assessment+personal_development_behaviour_and_welfare) %>%
   # Create rank for entries based on urn and inspection id
   group_by(urn, inspection_id) %>% 
   mutate(rnk1 = rank(ratingsum,desc(inspection_date), ties.method = "first")) %>%
@@ -450,21 +465,7 @@ all_data_final <- all_data_final %>%
   left_join(select(gias,urn,establishment_status_code), by = c("urn" = "urn")) %>% 
   group_by(urn) %>%
   mutate(history_order = rank(desc(publication_date), ties.method = "first")) %>%
-  ungroup() %>%
-  mutate_at(
-    vars(
-      x16_to_19_study_programmes_where_applicable,
-      early_years_provision_where_applicable,
-      outcomes_for_children_and_learners,
-      quality_of_teaching_learning_and_assessment,
-      personal_development_behaviour_and_welfare,
-      effectiveness_of_leadership_and_management,
-      quality_of_education,
-      personal_development,
-      behaviour_and_attitudes
-    ), 
-    function(x) ifelse(x == 0, 9, x)
-  )
+  ungroup()
 
 write.csv(all_data_final, "outputs/ofsted_all.csv", row.names = FALSE, na = "")
 write.csv(current_urn, "outputs/current_urn.csv", row.names = FALSE, na = "")
