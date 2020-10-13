@@ -39,7 +39,8 @@ monthly_files <- html_attr(html_nodes(pg, "a"), "href") %>%
       value %in% 
       c("https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/518183/Management_information_-_Schools_-_31_January_2016.xlsx",
         "https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/507161/External_Management_information_-_Schools___Dec-2015.xlsx",
-        "https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/507165/External_Management_information_-_Schools___Nov_2015.xlsx")
+        "https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/507165/External_Management_information_-_Schools___Nov_2015.xlsx"),
+    value != "https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/920755/Management_information_-_state-funded_schools_1_September_2015_to_31_August_2019.xlsx"
   ) %>%
   distinct() %>%
   pull(value)
