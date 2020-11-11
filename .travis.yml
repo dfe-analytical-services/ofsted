@@ -4,10 +4,6 @@ r:
   
 sudo: required
 
-branches:
-  only:
-  - master
-
 cache:
   directories:
   - $HOME/.local/share/renv
@@ -25,3 +21,5 @@ deploy:
   file_glob: true
   file: outputs/*
   skip_cleanup: true
+  on: 
+    branch: master
