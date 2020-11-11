@@ -6,7 +6,10 @@ library(tidylog)
 # Data preparation --------------------------------------------------------
 
 # Download the link files from gias and get clean cols required
-links <- read.csv(paste0("https://ea-edubase-api-prod.azurewebsites.net/edubase/downloads/public/links_edubasealldata",gsub("-","",Sys.Date()),".csv"), stringsAsFactors = FALSE) %>% 
+
+gias_links_address <- paste0("https://ea-edubase-api-prod.azurewebsites.net/edubase/downloads/public/links_edubasealldata",gsub("-","",Sys.Date()),".csv")
+
+links <- read.csv(url(gias_links_address, method = "libcurl"), stringsAsFactors = FALSE) %>% 
   clean_names() %>% 
   mutate(urn = as.integer(urn),
          link_urn = as.integer(link_urn),
