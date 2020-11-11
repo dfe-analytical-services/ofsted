@@ -35,7 +35,10 @@ successor_link <- links %>%
   distinct(urn, link_urn, .keep_all = TRUE)
 
 # Read in a gias all data cut and select clean cols required
-gias <- read.csv(paste0("https://ea-edubase-api-prod.azurewebsites.net/edubase/downloads/public/edubasealldata",gsub("-","",Sys.Date()),".csv")) %>%
+
+gias_address <- paste0("https://ea-edubase-api-prod.azurewebsites.net/edubase/downloads/public/edubasealldata",gsub("-","",Sys.Date()),".csv")
+
+gias <- read.csv(url(gias_address, method = "libcurl")) %>%
   clean_names() %>%
   transmute(urn = as.integer(urn),
             establishment_name,
