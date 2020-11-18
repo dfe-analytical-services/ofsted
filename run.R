@@ -52,7 +52,7 @@ historical_file <- "https://assets.publishing.service.gov.uk/government/uploads/
 # Create function that downloads file with base file name to data folder
 download_w_file_name <- function(url, folder){
   
-  download.file(url, mode="wb", destfile = file.path(folder, basename(url)))
+  download.file(url, mode="wb", method = "libcurl", destfile = file.path(folder, basename(url)))
   
 }
 
