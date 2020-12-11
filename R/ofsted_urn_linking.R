@@ -38,7 +38,7 @@ successor_link <- links %>%
 
 gias_address <- paste0("https://ea-edubase-api-prod.azurewebsites.net/edubase/downloads/public/edubasealldata",gsub("-","",Sys.Date()),".csv")
 
-gias <- read.csv(url(gias_address, method = "libcurl")) %>%
+gias <- read.csv(url(gias_address, method = "libcurl"), stringsAsFactors = FALSE) %>%
   clean_names() %>%
   transmute(urn = as.integer(urn),
             establishment_name,
